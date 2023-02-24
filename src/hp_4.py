@@ -6,10 +6,13 @@ from collections import defaultdict
 
 
 def reformat_dates(old_dates):
+    """Accepts a list of date strings in format yyyy-mm-dd, re-formats each
+    element to a format dd mmm yyyy--01 Jan 2001."""
     new_dates = []
-    for old_date in old_dates:
-        dt = datetime.strptime(old_date, '%Y-%m-%d')
-        new_date = dt.strftime('%d %b %Y--%d %b %Y').replace(' 01 ', ' ')
+    for date in old_dates:
+        date_obj = datetime.strptime(date, '%Y-%m-%d')
+        new_date = date_obj.strftime('%d %b %Y') + '--' + date_obj.strftime(
+            '%d %b %Y').replace(date_obj.strftime('%Y'), '2001')
         new_dates.append(new_date)
     return new_dates
 
