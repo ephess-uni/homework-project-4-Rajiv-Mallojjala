@@ -41,28 +41,31 @@ def read_book_returns(file_path):
 def fees_report(infile, outfile):
     """Calculates late fees per patron id and writes a summary report to
     outfile."""
-    # Read book returns data
-    book_returns = read_book_returns(infile)
+    # Load book return data from input file
+    with open(infile, 'r') as f:
+        reader = DictReader(f)
+        book_returns = list(reader)
 
-    # Create a dictionary to hold patron late fees
-    late_fees = defaultdict(float)
+    # Create dictionary to hold fees for each patron id
+    fees_by_patron = defaultdict(float)
 
-    # Loop through each book return and calculate late fees for each patron
-    for return_record in book_returns:
-        return_date = datetime.strptime(return_record['date'], '%Y-%m-%d')
-        due_date = datetime.strptime(return_record['due_date'], '%Y-%m-%d')
-        late_days = (return_date - due_date).days
-        if late_days > 0:
-            late_fee = late_days * 0.10
-            patron_id = return_record['patron_id']
-            late_fees[patron_id] += late_fee
+    # Calculate fees for each book return
+    for row in book_returns:
+        due_date = datetime.strptime(row['due_date'], '%Y-%m-%d')
+        return_date = datetime.strptime(row['return_date'], '%Y-%m-%d')
+        days_late = (return_date - due_date).days
+        if days_late > 0:
+            patron_id = row['patron_id']
+            fee = days_late * 0.25
+            fees_by_patron[patron_id] += fee
 
-    # Write late fees report to outfile
+    # Write fees report to output file
     with open(outfile, 'w', newline='') as f:
-        writer = DictWriter(f, fieldnames=['patron_id', 'late_fees'])
+        fieldnames = ['patron_id', 'total_fees']
+        writer = DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        for patron_id, fee in late_fees.items():
-            writer.writerow({'patron_id': patron_id, 'late_fees': fee})
+        for patron_id, total_fees in fees_by_patron.items():
+            writer.writerow({'patron_id': patron_id, 'total_fees': total_fees})
 
 
 # The following main selection block will only run when you choose
