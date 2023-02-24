@@ -6,29 +6,69 @@ from collections import defaultdict
 
 
 def reformat_dates(old_dates):
-    """Accepts a list of date strings in format yyyy-mm-dd, re-formats each
-    element to a format dd mmm yyyy--01 Jan 2001."""
-    pass
+    reformatted_dates = []
+    for date in old_dates:
+        date_obj = datetime.strptime(date, '%Y-%m-%d')
+        reformatted_dates.append(date_obj.strftime('%d %b %Y'))
+    return reformatted_dates
 
 
 def date_range(start, n):
-    """For input date string `start`, with format 'yyyy-mm-dd', returns
-    a list of of `n` datetime objects starting at `start` where each
-    element in the list is one day after the previous."""
-    pass
+    if not isinstance(start, str):
+        raise TypeError("start must be a string in the format yyyy-mm-dd")
+    if not isinstance(n, int):
+        raise TypeError("n must be an integer")
+    dates = []
+    curr_date = datetime.strptime(start, '%Y-%m-%d')
+    for i in range(n):
+        dates.append(curr_date)
+        curr_date += timedelta(days=1)
+    return dates
 
 
 def add_date_range(values, start_date):
-    """Adds a daily date range to the list `values` beginning with
-    `start_date`.  The date, value pairs are returned as tuples
-    in the returned list."""
-    pass
+    dates = date_range(start_date, len(values))
+    return list(zip(dates, values))
 
 
 def fees_report(infile, outfile):
-    """Calculates late fees per patron id and writes a summary report to
-    outfile."""
-    pass
+    # Create an empty dictionary to store the late fees for each patron
+    late_fees = {}
+
+    # Open the input file for reading
+    with open(infile, 'r') as f:
+        # Read each line in the input file
+        for line in f:
+            # Split the line into fields
+            fields = line.strip().split(',')
+            
+            # Extract the patron id, item type, and number of days late from the fields
+            patron_id = fields[0]
+            item_type = fields[1]
+            days_late = int(fields[2])
+            
+            # Calculate the late fee for the item based on its type and number of days late
+            if item_type == 'book':
+                late_fee = days_late * 0.25
+            elif item_type == 'dvd':
+                late_fee = days_late * 0.50
+            else:
+                late_fee = days_late * 1.00
+                
+            # Add the late fee to the total for the patron
+            if patron_id in late_fees:
+                late_fees[patron_id] += late_fee
+            else:
+                late_fees[patron_id] = late_fee
+                
+    # Open the output file for writing
+    with open(outfile, 'w') as f:
+        # Write the header line to the output file
+        f.write('Patron ID, Late Fee\n')
+        
+        # Write a line for each patron with late fees to the output file
+        for patron_id, late_fee in late_fees.items():
+            f.write('{}, {}\n'.format(patron_id, late_fee))
 
 
 # The following main selection block will only run when you choose
