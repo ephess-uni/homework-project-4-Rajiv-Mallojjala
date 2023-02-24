@@ -2,6 +2,7 @@
 #
 from datetime import datetime, timedelta
 from csv import DictReader, DictWriter
+import csv
 from collections import defaultdict
 
 
@@ -39,40 +40,37 @@ def read_book_returns(file_path):
 
 
 def fees_report(infile, outfile):
-    """Calculates late fees per patron id and writes a summary report to
-    outfile."""
-    # Load book return data from input file
-    with open(infile, 'r') as f:
-        reader = DictReader(f)
-        book_returns = list(reader)
+    # open input and output files
+    with open(infile, 'r') as csv_file_in, open(outfile, 'w', newline='') as csv_file_out:
+        # create csv reader and writer objects
+        reader = csv.DictReader(csv_file_in)
+        writer = csv.DictWriter(csv_file_out, fieldnames=[
+                                'patron_id', 'late_fees'])
 
-    # Create dictionary to hold fees for each patron id
-    fees_by_patron = defaultdict(float)
+        # create dictionary to keep track of late fees by patron_id
+        late_fees = {}
 
-    # Calculate fees for each book return
-    for row in book_returns:
-        due_date_str = row.get('due_date')
-        if due_date_str is None:
-            raise ValueError("Missing 'due_date' field in book return record")
-        due_date = datetime.strptime(due_date_str, '%Y-%m-%d')
-        return_date_str = row.get('return_date')
-        if return_date_str is None:
-            raise ValueError(
-                "Missing 'return_date' field in book return record")
-        return_date = datetime.strptime(return_date_str, '%Y-%m-%d')
-        days_late = (return_date - due_date).days
-        if days_late > 0:
-            patron_id = row.get('patron_id')
-            if patron_id is None:
-                raise ValueError(
-                    "Missing 'patron_id' field in book return record")
-            fees_by_patron[patron_id] += days_late * 0.25
+        # iterate over rows in input file and calculate late fees
+        for row in reader:
+            # calculate number of days late
+            date_due = datetime.strptime(row['date_due'], '%m/%d/%y')
+            date_returned = datetime.strptime(row['date_returned'], '%m/%d/%y')
+            days_late = (date_returned - date_due).days
 
-    # Write fees report to output file
-    with open(outfile, 'w') as f:
-        for patron_id, fees in fees_by_patron.items():
-            f.write(f"{patron_id}, ${fees:.2f}\n")
+            # calculate late fee and add to dictionary
+            if days_late > 0:
+                patron_id = row['patron_id']
+                late_fee = days_late * 0.25
+                if patron_id not in late_fees:
+                    late_fees[patron_id] = late_fee
+                else:
+                    late_fees[patron_id] += late_fee
 
+        # write summary report to output file
+        writer.writeheader()
+        for patron_id, late_fee in late_fees.items():
+            writer.writerow({'patron_id': patron_id, 'late_fees': late_fee})
+            
 # The following main selection block will only run when you choose
 # "Run -> Module" in IDLE.  Use this section to run test code.  The
 # template code below tests the fees_report function.
