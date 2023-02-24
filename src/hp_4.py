@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from csv import DictReader, DictWriter
 from collections import defaultdict
 
+LATE_FEE_PER_DAY = 0.25
+
 
 def reformat_dates(old_dates):
     reformatted_dates = []
@@ -14,15 +16,11 @@ def reformat_dates(old_dates):
 
 
 def read_book_returns(infile):
-    """Reads the book returns file at `path` and returns a list of
-    dictionaries representing the rows."""
-    rows = []
-    with open(infile, 'r') as file:
-        reader = DictReader(file)
-        for row in reader:
-            if 'due_date' in row:
-                rows.append(row)
-    return rows
+    """Reads the book returns data from the input file and returns a list
+    of dictionaries."""
+    with open(infile, 'r', newline='') as f:
+        reader = DictReader(f)
+        return [row for row in reader]
 
 
 def date_range(start, n):
@@ -61,15 +59,19 @@ def fees_report(infile, outfile):
     # Loop through the book returns
     for row in book_returns:
         # Get the due date for the book
-        due_date = row.get('due_date')
-        if due_date is not None:
-            due_date = datetime.strptime(due_date, '%Y-%m-%d')
+        due_date_str = row.get('due_date')
+        if due_date_str is not None:
+            due_date = datetime.strptime(due_date_str, '%Y-%m-%d')
         else:
             # Skip this row if there is no due date
             continue
 
         # Get the return date for the book
-        return_date = datetime.strptime(row['return_date'], '%Y-%m-%d')
+        return_date_str = row.get('return_date')
+        if return_date_str is None:
+            # Skip this row if there is no return date
+            continue
+        return_date = datetime.strptime(return_date_str, '%Y-%m-%d')
 
         # Calculate the number of days late
         days_late = (return_date - due_date).days
@@ -88,7 +90,7 @@ def fees_report(infile, outfile):
         writer = DictWriter(f, fieldnames=['patron_id', 'late_fee'])
         writer.writeheader()
         for patron_id, fee in patron_fees.items():
-            writer.writerow({'patron_id': patron_id, 'late_fee': fee}) 
+            writer.writerow({'patron_id': patron_id, 'late_fee': fee})
 
 
 # The following main selection block will only run when you choose
