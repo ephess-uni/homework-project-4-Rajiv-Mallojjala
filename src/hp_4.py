@@ -70,8 +70,8 @@ if __name__ == '__main__':
     except ImportError:
         from util import get_data_file_path
 
-    # BOOK_RETURNS_PATH = get_data_file_path('book_returns.csv')
-    BOOK_RETURNS_PATH = get_data_file_path('book_returns_short.csv')
+    BOOK_RETURNS_PATH = get_data_file_path('book_returns.csv')
+    # BOOK_RETURNS_PATH = get_data_file_path('book_returns_short.csv')
 
     OUTFILE = 'book_fees.csv'
 
