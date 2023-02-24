@@ -31,37 +31,38 @@ def add_date_range(values, start_date):
     return list(zip(date_range_list, values))
 
 
+def read_book_returns(file_path):
+    """Reads the book returns file and returns a list of dictionaries."""
+    with open(file_path, 'r') as f:
+        reader = DictReader(f)
+        return list(reader)
+
+
 def fees_report(infile, outfile):
     """Calculates late fees per patron id and writes a summary report to
     outfile."""
-    with open(infile) as file:
-        reader = DictReader(file)
-        patron_books_dict = defaultdict(list)
-        for row in reader:
-            patron_id = row['patron_id']
-            patron_books_dict[patron_id].append(row)
+    # Read book returns data
+    book_returns = read_book_returns(infile)
 
-    with open(outfile, 'w', newline='') as file:
-        writer = DictWriter(file, fieldnames=['patron_id', 'total_fees'])
+    # Create a dictionary to hold patron late fees
+    late_fees = defaultdict(float)
+
+    # Loop through each book return and calculate late fees for each patron
+    for return_record in book_returns:
+        return_date = datetime.strptime(return_record['date'], '%Y-%m-%d')
+        due_date = datetime.strptime(return_record['due_date'], '%Y-%m-%d')
+        late_days = (return_date - due_date).days
+        if late_days > 0:
+            late_fee = late_days * 0.10
+            patron_id = return_record['patron_id']
+            late_fees[patron_id] += late_fee
+
+    # Write late fees report to outfile
+    with open(outfile, 'w', newline='') as f:
+        writer = DictWriter(f, fieldnames=['patron_id', 'late_fees'])
         writer.writeheader()
-
-        for patron_id, books in patron_books_dict.items():
-            total_fees = 0
-            for book in books:
-                start_date = book['checkout_date']
-                due_date = book['due_date']
-                return_date = book['return_date']
-                late_fee_per_day = int(book['late_fee_per_day'])
-                if return_date == '':
-                    continue
-                if return_date <= due_date:
-                    continue
-                return_date_obj = datetime.strptime(return_date, '%Y-%m-%d')
-                due_date_obj = datetime.strptime(due_date, '%Y-%m-%d')
-                late_days = (return_date_obj - due_date_obj).days
-                late_fee = late_days * late_fee_per_day
-                total_fees += late_fee
-            writer.writerow({'patron_id': patron_id, 'total_fees': total_fees})
+        for patron_id, fee in late_fees.items():
+            writer.writerow({'patron_id': patron_id, 'late_fees': fee})
 
 
 # The following main selection block will only run when you choose
