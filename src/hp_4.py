@@ -7,11 +7,26 @@ from collections import defaultdict
 
 def reformat_dates(old_dates):
     new_dates = []
-    for date_str in old_dates:
-        date = datetime.strptime(date_str, '%Y-%m-%d')
-        new_date_str = date.strftime('%d %b %Y')
-        new_dates.append(new_date_str)
+    for old_date in old_dates:
+        dt = datetime.strptime(old_date, '%Y-%m-%d')
+        new_date = dt.strftime('%d %b %Y--%d %b %Y').replace(' 01 ', ' ')
+        new_dates.append(new_date)
     return new_dates
+
+
+def read_book_returns(infile):
+    """
+    Reads book return data from the CSV file at infile and returns a list of
+    dictionaries, with one dictionary per row of data. Each dictionary has the
+    keys 'patron_id', 'book_id', and 'return_date', where 'return_date' is a
+    string in the format 'yyyy-mm-dd'.
+
+    :param infile: A string giving the path to the input CSV file.
+    :return: A list of dictionaries, one per row of data.
+    """
+    with open(infile, 'r') as f:
+        reader = DictReader(f)
+        return [{key: value for key, value in row.items()} for row in reader]
 
 
 def date_range(start, n):
