@@ -51,22 +51,27 @@ def fees_report(infile, outfile):
 
     # Calculate fees for each book return
     for row in book_returns:
-        due_date = datetime.strptime(row['due_date'], '%Y-%m-%d')
-        return_date = datetime.strptime(row['return_date'], '%Y-%m-%d')
+        due_date_str = row.get('due_date')
+        if due_date_str is None:
+            raise ValueError("Missing 'due_date' field in book return record")
+        due_date = datetime.strptime(due_date_str, '%Y-%m-%d')
+        return_date_str = row.get('return_date')
+        if return_date_str is None:
+            raise ValueError(
+                "Missing 'return_date' field in book return record")
+        return_date = datetime.strptime(return_date_str, '%Y-%m-%d')
         days_late = (return_date - due_date).days
         if days_late > 0:
-            patron_id = row['patron_id']
-            fee = days_late * 0.25
-            fees_by_patron[patron_id] += fee
+            patron_id = row.get('patron_id')
+            if patron_id is None:
+                raise ValueError(
+                    "Missing 'patron_id' field in book return record")
+            fees_by_patron[patron_id] += days_late * 0.25
 
     # Write fees report to output file
-    with open(outfile, 'w', newline='') as f:
-        fieldnames = ['patron_id', 'total_fees']
-        writer = DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for patron_id, total_fees in fees_by_patron.items():
-            writer.writerow({'patron_id': patron_id, 'total_fees': total_fees})
-
+    with open(outfile, 'w') as f:
+        for patron_id, fees in fees_by_patron.items():
+            f.write(f"{patron_id}, ${fees:.2f}\n")
 
 # The following main selection block will only run when you choose
 # "Run -> Module" in IDLE.  Use this section to run test code.  The
@@ -74,6 +79,7 @@ def fees_report(infile, outfile):
 #
 # Use the get_data_file_path function to get the full path of any file
 # under the data directory.
+
 
 if __name__ == '__main__':
     
