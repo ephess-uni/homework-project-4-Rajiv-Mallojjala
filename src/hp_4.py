@@ -5,44 +5,56 @@ from csv import DictReader, DictWriter
 from collections import defaultdict
 
 
-def reformat_dates(dates):
-    return [datetime.strptime(d, '%Y-%m-%d').strftime('%d %b %Y') for d in dates]
+def reformat_dates(old_dates):
+    new_dates = []
+    for date_str in old_dates:
+        date = datetime.strptime(date_str, '%Y-%m-%d')
+        new_date_str = date.strftime('%d %b %Y')
+        new_dates.append(new_date_str)
+    return new_dates
 
 
 def date_range(start, n):
-    if not isinstance(start, str):
-        raise TypeError('start should be a string in the format yyyy-mm-dd')
-    if not isinstance(n, int):
-        raise TypeError('n should be an integer')
     start_date = datetime.strptime(start, '%Y-%m-%d')
-    return [start_date + timedelta(days=i) for i in range(n)]
+    dates = [start_date + timedelta(days=i) for i in range(n)]
+    return dates
 
 
 def add_date_range(values, start_date):
-    date_range_list = date_range(start_date, len(values))
-    return [(date, value) for date, value in zip(date_range_list, values)]
+    dates = date_range(start_date, len(values))
+    return list(zip(dates, values))
 
 
 def fees_report(infile, outfile):
+     # Open the input file and read the data
     with open(infile) as f:
         reader = DictReader(f)
-        late_fees_dict = {}
-        for row in reader:
-            patron_id = row['patron_id']
-            date_due = datetime.strptime(row['date_due'], '%m/%d/%y')
-            date_returned = datetime.strptime(row['date_returned'], '%m/%d/%y')
-            if date_returned > date_due:
-                days_late = (date_returned - date_due).days
-                late_fees = round(0.25 * days_late, 2)
-                if patron_id in late_fees_dict:
-                    late_fees_dict[patron_id] += late_fees
-                else:
-                    late_fees_dict[patron_id] = late_fees
-    with open(outfile, mode='w', newline='') as f:
-        writer = writer(f)
-        writer.writerow(['patron_id', 'late_fees'])
-        for patron_id, fees in late_fees_dict.items():
-            writer.writerow([patron_id, '{:.2f}'.format(fees)])
+        rows = [row for row in reader]
+
+    # Group the rows by patron id
+    rows_by_patron = defaultdict(list)
+    for row in rows:
+        rows_by_patron[row['patron_id']].append(row)
+
+    # Calculate the late fees for each patron and write to the output file
+    with open(outfile, 'w', newline='') as f:
+        writer = DictWriter(f, fieldnames=['patron_id', 'late_fee'])
+        writer.writeheader()
+
+        for patron_id, rows in rows_by_patron.items():
+            total_late_fee = 0
+
+            for row in rows:
+                due_date = datetime.strptime(row['due_date'], '%Y-%m-%d')
+                return_date = datetime.strptime(row['return_date'], '%Y-%m-%d')
+
+                if return_date > due_date:
+                    days_late = (return_date - due_date).days
+                    late_fee = days_late * float(row['fee_per_day'])
+                    total_late_fee += late_fee
+
+            writer.writerow(
+                {'patron_id': patron_id, 'late_fee': total_late_fee})
 
 
 # The following main selection block will only run when you choose
@@ -51,7 +63,6 @@ def fees_report(infile, outfile):
 #
 # Use the get_data_file_path function to get the full path of any file
 # under the data directory.
-
 if __name__ == '__main__':
     
     try:
