@@ -15,23 +15,33 @@ def reformat_dates(old_dates):
 
 
 def read_book_returns(infile):
-    """
-    Reads book return data from the CSV file at infile and returns a list of
-    dictionaries, with one dictionary per row of data. Each dictionary has the
-    keys 'patron_id', 'book_id', and 'return_date', where 'return_date' is a
-    string in the format 'yyyy-mm-dd'.
-
-    :param infile: A string giving the path to the input CSV file.
-    :return: A list of dictionaries, one per row of data.
-    """
-    with open(infile, 'r') as f:
-        reader = DictReader(f)
-        return [{key: value for key, value in row.items()} for row in reader]
+    """Reads the book returns file at `path` and returns a list of
+    dictionaries representing the rows."""
+    rows = []
+    with open(infile, 'r') as file:
+        reader = DictReader(file)
+        for row in reader:
+            if 'due_date' in row:
+                rows.append(row)
+    return rows
 
 
 def date_range(start, n):
-    start_date = datetime.strptime(start, '%Y-%m-%d')
-    dates = [start_date + timedelta(days=i) for i in range(n)]
+    """For input date string `start`, with format 'yyyy-mm-dd', returns
+    a list of of `n` datetime objects starting at `start` where each
+    element in the list is one day after the previous."""
+    try:
+        start_date = datetime.strptime(start, '%Y-%m-%d')
+    except ValueError:
+        raise ValueError(
+            f"Invalid start date format: {start}. Expected format is yyyy-mm-dd.")
+
+    try:
+        dates = [start_date + timedelta(days=i) for i in range(n)]
+    except OverflowError:
+        raise ValueError(
+            f"Invalid n value: {n}. Expected a non-negative integer.")
+
     return dates
 
 
@@ -41,35 +51,45 @@ def add_date_range(values, start_date):
 
 
 def fees_report(infile, outfile):
-     # Open the input file and read the data
-    with open(infile) as f:
-        reader = DictReader(f)
-        rows = [row for row in reader]
+    """Calculates late fees per patron id and writes a summary report to
+    outfile."""
+    # Read the book returns data
+    book_returns = read_book_returns(infile)
 
-    # Group the rows by patron id
-    rows_by_patron = defaultdict(list)
-    for row in rows:
-        rows_by_patron[row['patron_id']].append(row)
+    # Create a dictionary to hold the fees for each patron
+    patron_fees = defaultdict(float)
 
-    # Calculate the late fees for each patron and write to the output file
+    # Loop through the book returns
+    for row in book_returns:
+        # Get the due date for the book
+        due_date = row.get('due_date')
+        if due_date is not None:
+            due_date = datetime.strptime(due_date, '%Y-%m-%d')
+        else:
+            # Skip this row if there is no due date
+            continue
+
+        # Get the return date for the book
+        return_date = datetime.strptime(row['return_date'], '%Y-%m-%d')
+
+        # Calculate the number of days late
+        days_late = (return_date - due_date).days
+        if days_late <= 0:
+            # No late fee if the book is returned on or before the due date
+            continue
+
+        # Calculate the late fee for the book
+        late_fee = days_late * LATE_FEE_PER_DAY
+
+        # Add the late fee to the patron's total
+        patron_fees[row['patron_id']] += late_fee
+
+    # Write the summary report to the output file
     with open(outfile, 'w', newline='') as f:
         writer = DictWriter(f, fieldnames=['patron_id', 'late_fee'])
         writer.writeheader()
-
-        for patron_id, rows in rows_by_patron.items():
-            total_late_fee = 0
-
-            for row in rows:
-                due_date = datetime.strptime(row['due_date'], '%Y-%m-%d')
-                return_date = datetime.strptime(row['return_date'], '%Y-%m-%d')
-
-                if return_date > due_date:
-                    days_late = (return_date - due_date).days
-                    late_fee = days_late * float(row['fee_per_day'])
-                    total_late_fee += late_fee
-
-            writer.writerow(
-                {'patron_id': patron_id, 'late_fee': total_late_fee})
+        for patron_id, fee in patron_fees.items():
+            writer.writerow({'patron_id': patron_id, 'late_fee': fee}) 
 
 
 # The following main selection block will only run when you choose
@@ -85,8 +105,8 @@ if __name__ == '__main__':
     except ImportError:
         from util import get_data_file_path
 
-    BOOK_RETURNS_PATH = get_data_file_path('book_returns.csv')
-    # BOOK_RETURNS_PATH = get_data_file_path('book_returns_short.csv')
+    # BOOK_RETURNS_PATH = get_data_file_path('book_returns.csv')
+    BOOK_RETURNS_PATH = get_data_file_path('book_returns_short.csv')
 
     OUTFILE = 'book_fees.csv'
 
