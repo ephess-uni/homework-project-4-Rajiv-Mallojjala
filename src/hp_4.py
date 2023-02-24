@@ -109,6 +109,8 @@ if __name__ == '__main__':
 
     fees_report(BOOK_RETURNS_PATH, OUTFILE)
 
+    # print(fees_report_out_short)
+
     # Print the data written to the outfile
     with open(OUTFILE) as f:
         print(f.read())
