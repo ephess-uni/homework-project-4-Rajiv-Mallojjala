@@ -1,62 +1,86 @@
-# hp_4.py
-#
+
+# hp_4.py#
+
 from datetime import datetime, timedelta
 from csv import DictReader, DictWriter
 from collections import defaultdict
-import json
-
-LATE_FEE_PER_DAY = 0.50
-
-
-def read_json_file(file_path):
-    with open(file_path) as file:
-        data = json.load(file)
-        return data if data else []
 
 
 def reformat_dates(old_dates):
-    return [datetime.strptime(date, '%Y-%m-%d').strftime('%d %b %Y') for date in old_dates]
+    """Accepts a list of date strings in format yyyy-mm-dd, re-formats each
+    element to a format dd mmm yyyy--01 Jan 2001."""
+    modified_date_list=[]
+    for dat in old_dates:
+        modified_date_list.append(datetime.strptime(dat, "%Y-%m-%d").strftime("%d %b %Y"))
+    return modified_date_list
+
+def date_range(start, n):
+    """For input date string `start`, with format 'yyyy-mm-dd', returns
+    a list of of `n` datetime objects starting at `start` where each
+    element in the list is one day after the previous."""
+    
+    if not isinstance(start, str):
+        raise TypeError
+    elif not isinstance(n, int):
+        raise TypeError
+    else:
+        added_list=[]
+        for inc in range(0,n):
+            added_list.append(datetime.strptime(start,"%Y-%m-%d")  + timedelta(days=inc))
+        return added_list
 
 
-def read_book_returns(infile):
-    with open(infile, newline='') as f:
-        reader = DictReader(f)
-        return list(reader)
+def add_date_range(values, start_date):
+    """Adds a daily date range to the list `values` beginning with 
+    `start_date`.  The date, value pairs are returned as tuples
+    in the returned list."""
+    added_list=[]
+    for i, elem in enumerate(values):
+        dat_list=[]       
+        dat_list.append(datetime.strptime(start_date,"%Y-%m-%d")  + timedelta(days=i))
+        dat_list.append(elem)
+        added_list.append(tuple(dat_list))
+    return added_list
 
 
-def date_range(start_date_str, n):
-    try:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-    except ValueError:
-        raise ValueError(
-            f"Invalid start date format: {start_date_str}. Expected format is yyyy-mm-dd.")
+def fees_report(infile, outfile):
+    """Calculates late fees per patron id and writes a summary report to
+    outfile."""
+  
+    with open(infile) as file:
+        added_list=[]
+        read_csv_obj = DictReader(file)
+        for record in read_csv_obj:
+            temp_dict={}
+            late_fee_days=datetime.strptime(record['date_returned'],'%m/%d/%Y')- datetime.strptime(record['date_due'],'%m/%d/%Y') 
+            if(late_fee_days.days>0):
+                temp_dict["patron_id"]=record['patron_id']
+                temp_dict["late_fees"]=round(late_fee_days.days*0.25, 2)
+                added_list.append(temp_dict)
+            else:
+                temp_dict["patron_id"]=record['patron_id']
+                temp_dict["late_fees"]=float(0)
+                added_list.append(temp_dict)
+                
+        temp_dict_2 = {}
+        for dict in added_list:
+            key = (dict['patron_id'])
+            temp_dict_2[key] = temp_dict_2.get(key, 0) + dict['late_fees']
+        updated_list = [{'patron_id': key, 'late_fees': value} for key, value in temp_dict_2.items()]
+        
+        for dict in updated_list:
+            for key,value in dict.items():
+                if key == "late_fees":
+                    if len(str(value).split('.')[-1]) != 2:
+                        dict[key] = str(value)+"0"
 
-    try:
-        return [start_date + timedelta(days=i) for i in range(n)]
-    except OverflowError:
-        raise ValueError(
-            f"Invalid n value: {n}. Expected a non-negative integer.")
 
-
-def add_date_range(values, start_date_str):
-    dates = date_range(start_date_str, len(values))
-    return list(zip(dates, values))
-
-
-def fees_report(infile_path, outfile_path):
-    data = read_json_file(infile_path)
-
-    fees_report = []
-    for patron in data['patrons']:
-        if patron['fees'] > 0:
-            fees_report.append({
-                'patron_id': patron['patron_id'],
-                'name': f"{patron['first_name']} {patron['last_name']}",
-                'fees': f"{patron['fees']:.2f}"
-            })
-
-    with open(outfile_path, 'w') as f:
-        json.dump(fees_report, f, indent=2)
+   
+    with open(outfile,"w", newline="") as file:
+        col = ['patron_id', 'late_fees']
+        writer = DictWriter(file, fieldnames=col)
+        writer.writeheader()
+        writer.writerows(updated_list)
 
 
 # The following main selection block will only run when you choose
@@ -65,6 +89,7 @@ def fees_report(infile_path, outfile_path):
 #
 # Use the get_data_file_path function to get the full path of any file
 # under the data directory.
+
 if __name__ == '__main__':
     
     try:
